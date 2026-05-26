@@ -47,15 +47,18 @@ def run_single_model_optimization(
 
         ## Key Findings
         • [2-3 bullet points highlighting main alignment and gaps]
+        • Break line after each bullet point
 
         ## Specific Improvements
         • [3-5 bullet points with concrete suggestions]
         • Each bullet should start with a strong action verb
         • Include specific examples where possible
+        • Break line after each bullet point
 
         ## Action Items
         • [2-3 specific, immediate steps to take]
         • Each item should be clear and implementable
+        • Break line after each bullet point
 
         Keep all points concise and actionable. Do not include any thinking process or meta-commentary.
         """
