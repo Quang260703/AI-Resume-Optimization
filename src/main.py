@@ -1,128 +1,211 @@
-"""Main entry point for portfolio optimisation."""
+import streamlit as st
+import os
+from llama_index.core import SimpleDirectoryReader
+from llama_index.llms.google_genai import GoogleGenAI
+from dotenv import load_dotenv
+import tempfile
+import shutil
+import base64
+from llama_index.readers.file import PDFReader
 
-from __future__ import annotations
-
-import logging
-import sys
-from typing import Any
-
-import pandas as pd
-
-from src.database import save_results_to_supabase
-from src.extractor import extract_data
-from src.model import ProphetModel
-from src.optimiser import optimize_portfolio_mean_variance
-from src.processor import append_predictions, collect_recent_prices, preprocess_data
-from src.settings import END_DATE, PORTFOLIO_TICKERS, START_DATE
-
-# Set up logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+# Load environment variables
+load_dotenv()
 
 
-def run_optimisation(
-    tickers: list[str],
-    start_date: str = START_DATE,
-    end_date: str = END_DATE,
-) -> dict[str, Any]:
-    """
-    Run portfolio optimisation: pull data, predict, calculate allocation, and log result.
-
-    Args:
-        tickers: List of stock ticker symbols
-        start_date: Start date for historical data (YYYY-MM-DD format). Defaults to START_DATE.
-        end_date: End date for historical data (YYYY-MM-DD format). Defaults to END_DATE.
-
-    Returns:
-        Dictionary containing optimisation results with keys:
-        - date: date object representing date optimisation was run
-        - prediction_date: date object for the prediction (next day after last historical date)
-        - predictions: dict[str, float] of predicted prices for each ticker
-        - current_prices: dict[str, float] of current prices for each ticker
-        - predicted_returns: dict[str, float] of predicted returns for each ticker
-        - weights: dict[str, float] of optimal portfolio weights for each ticker
-
-    Returns empty dict if data extraction fails.
-    """
-
-    as_of_date = pd.to_datetime(end_date).date()
-    logger.info(f"Starting portfolio optimisation for tickers: {tickers} as of {as_of_date}")
-
-    # 1. Extract historical data
-    logger.info("Extracting historical data...")
-    all_stock_data = extract_data(tickers, start_date=start_date, end_date=end_date)
-    if not all_stock_data:
-        logger.warning("No data extracted. Exiting optimisation.")
-        return {}
-
-    # 2. Preprocess historical data
-    logger.info("Preprocessing data...")
-    portfolio_data = preprocess_data(all_stock_data)
-
-    # 3. Predict next step using Prophet
-    logger.info("Generating predictions...")
-    model = ProphetModel()
-    predictions, predicted_returns = model.predict_for_tickers(portfolio_data)
-
-    # 4. Collect actual price history for the past month
-    actual_prices_last_month = collect_recent_prices(portfolio_data)
-
-    # 5. Append predictions to historical data
-    predicted_data = append_predictions(portfolio_data, predictions, predicted_returns)
-
-    # 6. Optimise portfolio using predicted returns as expected returns
-    logger.info("Calculating optimal portfolio allocation...")
-    weights_dict = optimize_portfolio_mean_variance(predicted_data)
-
-    # 7. Log results
-    logger.info("Portfolio Optimisation Results")
-    logger.info(f"Date: {as_of_date}")
-
-    logger.info("\nPredicted Prices (Next Day):")
-    for ticker, price in predictions.items():
-        logger.info(f"  {ticker}: ${price:.2f}")
-
-    logger.info("\nPredicted Returns:")
-    for ticker, ret in predicted_returns.items():
-        logger.info(f"  {ticker}: {ret * 100:.2f}%")
-
-    logger.info("\nOptimal Portfolio Weights:")
-    for ticker, weight in weights_dict.items():
-        logger.info(f"  {ticker}: {weight * 100:.2f}%")
-
-    return {
-        "date": as_of_date,
-        "predictions": predictions,
-        "predicted_returns": predicted_returns,
-        "actual_prices_last_month": actual_prices_last_month,
-        "weights": weights_dict,
-    }
-
-
-def main() -> None:
-    """Main CLI entry point - saves results to Supabase."""
+def run_single_model_optimization(
+    documents,
+    query_text: str,
+    job_title: str,
+    job_description: str,
+    generative_model: str = "models/gemini-2.5-flash",
+) -> str:
+    """Run optimization using only the Generative Model's long context."""
     try:
-        result = run_optimisation(tickers=PORTFOLIO_TICKERS)
+        # Initialize Gemini
+        llm = GoogleGenAI(model=generative_model, api_key=os.getenv("GEMINI_API_KEY"))
 
-        if not result:
-            logger.error("Optimisation returned empty result")
-            sys.exit(1)
+        # Extract all text from the resume documents
+        resume_text = "\n".join([doc.text for doc in documents])
 
-        try:
-            save_results_to_supabase(result)
-            print("\nResults successfully saved to Supabase database")
-        except Exception as db_error:
-            logger.error(f"Failed to save to Supabase: {db_error}")
-            print(f"\nWarning: Failed to save to Supabase: {db_error}")
-            sys.exit(1)
+        # Combined Prompt: Uses the model as its own analyzer and optimizer
+        full_prompt = f"""
+        YOU ARE AN EXPERT CAREER COACH AND ATS SPECIALIST.
+        
+        INPUT DATA:
+        1. RESUME CONTENT:
+        {resume_text}
+        
+        2. TARGET JOB TITLE: {job_title}
+        3. TARGET JOB DESCRIPTION:
+        {job_description}
+        
+        USER REQUEST: {query_text}
 
-    except Exception as e:
-        logger.error(f"Error during optimisation: {e}")
-        print(f"Error during optimisation: {e}", file=sys.stderr)
-        import traceback
+        TASK:
+        First, perform a deep analysis of the resume against the job description. 
+        Then, provide a direct, structured response in this exact format:
 
-        traceback.print_exc()
-        sys.exit(1)
+        ## Key Findings
+        • [2-3 bullet points highlighting main alignment and gaps]
+
+        ## Specific Improvements
+        • [3-5 bullet points with concrete suggestions]
+        • Each bullet should start with a strong action verb
+        • Include specific examples where possible
+
+        ## Action Items
+        • [2-3 specific, immediate steps to take]
+        • Each item should be clear and implementable
+
+        Keep all points concise and actionable. Do not include any thinking process or meta-commentary.
+        """
+
+        # Complete the request in one step
+        response = llm.complete(full_prompt)
+
+        return str(response)
+    except Exception:
+        raise
+
+
+def display_pdf_preview(pdf_file):
+    """Display PDF preview in the sidebar."""
+    try:
+        st.sidebar.subheader("Resume Preview")
+        base64_pdf = base64.b64encode(pdf_file.getvalue()).decode("utf-8")
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
+        st.sidebar.markdown(pdf_display, unsafe_allow_html=True)
+        return True
+    except Exception:
+        st.sidebar.error(f"Error previewing PDF: {str(Exception)}")
+        return False
+
+
+def main():
+    st.set_page_config(page_title="Resume Optimizer", layout="wide")
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    if "docs_loaded" not in st.session_state:
+        st.session_state.docs_loaded = False
+    if "temp_dir" not in st.session_state:
+        st.session_state.temp_dir = None
+    if "current_pdf" not in st.session_state:
+        st.session_state.current_pdf = None
+
+    st.title("📝 Resume Optimizer")
+    st.caption("Direct-Context Optimization via Gemini 2.5")
+
+    with st.sidebar:
+        generative_model = st.selectbox(
+            "Generative Model",
+            ["models/gemini-2.5-flash", "models/gemma-4-26b-a4b-it"],
+            index=0,
+        )
+
+        st.divider()
+        st.subheader("Upload Resume")
+        uploaded_file = st.file_uploader("Choose your resume (PDF)", type="pdf")
+
+        if uploaded_file is not None:
+            if uploaded_file != st.session_state.current_pdf:
+                st.session_state.current_pdf = uploaded_file
+                try:
+                    if not os.getenv("GEMINI_API_KEY"):
+                        st.error("Missing Gemini API key")
+                        st.stop()
+
+                    if st.session_state.temp_dir:
+                        shutil.rmtree(st.session_state.temp_dir)
+                    st.session_state.temp_dir = tempfile.mkdtemp()
+
+                    file_path = os.path.join(
+                        st.session_state.temp_dir, uploaded_file.name
+                    )
+                    with open(file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+
+                    with st.spinner("Loading Resume..."):
+                        loader = SimpleDirectoryReader(
+                            st.session_state.temp_dir,
+                            file_extractor={".pdf": PDFReader()},
+                        )
+                        documents = loader.load_data()
+
+                        # Verify text was extracted
+                        extracted_text = "\n".join([d.text for d in documents])
+                        if not extracted_text.strip():
+                            st.error(
+                                "Extraction failed. Please try a different PDF format."
+                            )
+                        else:
+                            st.session_state.docs_loaded = True
+                            st.session_state.documents = documents
+                            st.success(
+                                f"✓ {len(documents)} pages loaded from Overleaf PDF"
+                            )
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader("Job Information")
+        job_title = st.text_input("Job Title")
+        job_description = st.text_area("Job Description", height=200)
+
+        st.subheader("Optimization Options")
+        optimization_type = st.selectbox(
+            "Select Optimization Type",
+            [
+                "ATS Keyword Optimizer",
+                "Experience Section Enhancer",
+                "Skills Hierarchy Creator",
+                "Professional Summary Crafter",
+                "Education Optimizer",
+                "Technical Skills Showcase",
+                "Career Gap Framing",
+            ],
+        )
+
+        if st.button("Optimize Resume"):
+            if not st.session_state.docs_loaded:
+                st.error("Please upload your resume first")
+                st.stop()
+            if not job_title or not job_description:
+                st.error("Please provide both job title and description")
+                st.stop()
+
+            prompts = {
+                "ATS Keyword Optimizer": "Identify and optimize ATS keywords. Focus on exact matches and semantic variations from the job description.",
+                "Experience Section Enhancer": "Enhance experience section to align with job requirements. Focus on quantifiable achievements.",
+                "Skills Hierarchy Creator": "Organize skills based on job requirements. Identify gaps and development opportunities.",
+                "Professional Summary Crafter": "Create a targeted professional summary highlighting relevant experience and skills.",
+                "Education Optimizer": "Optimize education section to emphasize relevant qualifications for this position.",
+                "Technical Skills Showcase": "Organize technical skills based on job requirements. Highlight key competencies.",
+                "Career Gap Framing": "Address career gaps professionally. Focus on growth and relevant experience.",
+            }
+
+            with st.spinner("Optimizing..."):
+                try:
+                    # Calling the single model optimization function
+                    response = run_single_model_optimization(
+                        st.session_state.documents,
+                        prompts[optimization_type],
+                        job_title,
+                        job_description,
+                        generative_model,
+                    )
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": response}
+                    )
+                except Exception:
+                    st.error(f"Error: {str(Exception)}")
+
+    with col2:
+        st.subheader("Optimization Results")
+        for message in st.session_state.messages:
+            st.markdown(message["content"])
 
 
 if __name__ == "__main__":
