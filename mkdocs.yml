@@ -1,0 +1,18 @@
+site_name: Resume Optimizer AI
+site_url: https://Quang260703.github.io/Resume-Optimizer-AI/
+
+theme:
+  name: material  # A very popular, clean theme
+
+nav:
+  - Home: index.md
+  - API Reference: reference.md
+
+plugins:
+  - mkdocstrings:
+      handlers:
+        python:
+          setup_commands:
+            - import os
+            - import sys
+            - sys.path.append(os.path.abspath("."))
