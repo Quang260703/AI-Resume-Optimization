@@ -1,30 +1,46 @@
 name: documentation
- 
+
 on:
   push:
     branches:
-    - main
- 
+      - main
+
+# Required for 'mkdocs gh-deploy' to push to the gh-pages branch
+permissions:
+  contents: write
+
 jobs:
   code-quality:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10.11'
-      - run: pip install ruff mypy
-      - run: make check
- 
+          
+      - name: Install All Dependencies
+        run: |
+          pip install ruff mypy pytest pytest-mock
+          pip install llama-index-core llama-index-readers-file llama-index-llms-google-genai python-dotenv
+          
+      - name: Run Quality Suite
+        run: make check
+
   build-docs:
     needs: code-quality
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: '3.10.11'
-      - run: pip install mkdocs==1.4.2 mkdocstrings==0.21.2 "mkdocstrings[python]>=0.18"
+          
+      - name: Install Documentation Tools
+        run: pip install mkdocs==1.4.2 mkdocstrings==0.21.2 "mkdocstrings[python]>=0.18"
+        
       - name: Deploy documentation
         run: mkdocs gh-deploy --force
- 
