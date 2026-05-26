@@ -22,8 +22,8 @@ jobs:
           
       - name: Install All Dependencies
         run: |
-          pip install ruff mypy pytest pytest-mock
-          pip install llama-index-core llama-index-readers-file llama-index-llms-google-genai python-dotenv
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
           
       - name: Run Quality Suite
         run: make check

@@ -1,0 +1,9 @@
+streamlit
+llama-index-core
+llama-index-readers-file
+llama-index-llms-google-genai
+python-dotenv
+ruff
+mypy
+pytest
+pytest-mock
