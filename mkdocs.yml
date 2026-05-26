@@ -2,7 +2,7 @@ site_name: Resume Optimizer AI
 site_url: https://Quang260703.github.io/Resume-Optimizer-AI/
 
 theme:
-  name: material  # A very popular, clean theme
+  name: mkdocs
 
 nav:
   - Home: index.md
