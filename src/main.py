@@ -1,88 +1,18 @@
 import streamlit as st
 import os
 from llama_index.core import SimpleDirectoryReader
-from llama_index.llms.google_genai import GoogleGenAI
-from dotenv import load_dotenv
 import tempfile
 import shutil
-import base64
 from llama_index.readers.file import PDFReader
-
-# Load environment variables
-load_dotenv()
-
-
-def run_single_model_optimization(
-    documents,
-    query_text: str,
-    job_title: str,
-    job_description: str,
-    generative_model: str = "models/gemini-2.5-flash",
-) -> str:
-    """Run optimization using only the Generative Model's long context."""
-    try:
-        # Initialize Gemini
-        llm = GoogleGenAI(model=generative_model, api_key=os.getenv("GEMINI_API_KEY"))
-
-        # Extract all text from the resume documents
-        resume_text = "\n".join([doc.text for doc in documents])
-
-        # Combined Prompt: Uses the model as its own analyzer and optimizer
-        full_prompt = f"""
-        YOU ARE AN EXPERT CAREER COACH AND ATS SPECIALIST.
-        
-        INPUT DATA:
-        1. RESUME CONTENT:
-        {resume_text}
-        
-        2. TARGET JOB TITLE: {job_title}
-        3. TARGET JOB DESCRIPTION:
-        {job_description}
-        
-        USER REQUEST: {query_text}
-
-        TASK:
-        First, perform a deep analysis of the resume against the job description. 
-        Then, provide a direct, structured response in this exact format:
-
-        ## Key Findings
-        • [2-3 bullet points highlighting main alignment and gaps]
-
-        ## Specific Improvements
-        • [3-5 bullet points with concrete suggestions]
-        • Each bullet should start with a strong action verb
-        • Include specific examples where possible
-
-        ## Action Items
-        • [2-3 specific, immediate steps to take]
-        • Each item should be clear and implementable
-
-        Keep all points concise and actionable. Do not include any thinking process or meta-commentary.
-        """
-
-        # Complete the request in one step
-        response = llm.complete(full_prompt)
-
-        return str(response)
-    except Exception:
-        raise
-
-
-def display_pdf_preview(pdf_file):
-    """Display PDF preview in the sidebar."""
-    try:
-        st.sidebar.subheader("Resume Preview")
-        base64_pdf = base64.b64encode(pdf_file.getvalue()).decode("utf-8")
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="500" type="application/pdf"></iframe>'
-        st.sidebar.markdown(pdf_display, unsafe_allow_html=True)
-        return True
-    except Exception:
-        st.sidebar.error(f"Error previewing PDF: {str(Exception)}")
-        return False
+from src.reading_agents import run_reading_agent
+from src.writing_agents import run_writing_agent
+from src.prompts import OPTIMIZATION_SELECTION_PROMPT
 
 
 def main():
-    st.set_page_config(page_title="Resume Optimizer", layout="wide")
+    st.set_page_config(
+        page_title="Resume Optimizer", layout="wide", initial_sidebar_state="expanded"
+    )
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
@@ -92,6 +22,12 @@ def main():
         st.session_state.temp_dir = None
     if "current_pdf" not in st.session_state:
         st.session_state.current_pdf = None
+    if "optimization_done" not in st.session_state:
+        st.session_state.optimization_done = False
+    if "last_recommendation" not in st.session_state:
+        st.session_state.last_recommendation = None
+    if "latex_output" not in st.session_state:
+        st.session_state.latex_output = None
 
     st.title("📝 Resume Optimizer")
     st.caption("Direct-Context Optimization via Gemini 2.5")
@@ -132,7 +68,6 @@ def main():
                         )
                         documents = loader.load_data()
 
-                        # Verify text was extracted
                         extracted_text = "\n".join([d.text for d in documents])
                         if not extracted_text.strip():
                             st.error(
@@ -176,36 +111,60 @@ def main():
                 st.error("Please provide both job title and description")
                 st.stop()
 
-            prompts = {
-                "ATS Keyword Optimizer": "Identify and optimize ATS keywords. Focus on exact matches and semantic variations from the job description.",
-                "Experience Section Enhancer": "Enhance experience section to align with job requirements. Focus on quantifiable achievements.",
-                "Skills Hierarchy Creator": "Organize skills based on job requirements. Identify gaps and development opportunities.",
-                "Professional Summary Crafter": "Create a targeted professional summary highlighting relevant experience and skills.",
-                "Education Optimizer": "Optimize education section to emphasize relevant qualifications for this position.",
-                "Technical Skills Showcase": "Organize technical skills based on job requirements. Highlight key competencies.",
-                "Career Gap Framing": "Address career gaps professionally. Focus on growth and relevant experience.",
-            }
-
             with st.spinner("Optimizing..."):
                 try:
-                    # Calling the single model optimization function
-                    response = run_single_model_optimization(
+                    response = run_reading_agent(
                         st.session_state.documents,
-                        prompts[optimization_type],
+                        OPTIMIZATION_SELECTION_PROMPT[optimization_type],
                         job_title,
                         job_description,
                         generative_model,
                     )
+                    st.session_state.messages.clear()
                     st.session_state.messages.append(
                         {"role": "assistant", "content": response}
                     )
-                except Exception:
-                    st.error(f"Error: {str(Exception)}")
+                    st.session_state.optimization_done = True
+                    st.session_state.last_recommendation = response
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+
+        if st.session_state.get("optimization_done"):
+            if st.button("Generate Optimized Resume"):
+                if not job_title or not job_description:
+                    st.error("Please provide both job title and description")
+                    st.stop()
+                with st.spinner("Generating LaTeX resume..."):
+                    try:
+                        latex_output = run_writing_agent(
+                            st.session_state.documents,
+                            st.session_state.last_recommendation,
+                            job_title,
+                            job_description,
+                            generative_model,
+                        )
+                        st.session_state.latex_output = latex_output
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
     with col2:
         st.subheader("Optimization Results")
         for message in st.session_state.messages:
             st.markdown(message["content"])
+
+        if st.session_state.get("latex_output"):
+            st.divider()
+            st.subheader("Generated Resume")
+            st.download_button(
+                label="⬇️ Download .tex file",
+                data=st.session_state.latex_output,
+                file_name="optimized_resume.tex",
+                mime="text/plain",
+            )
+            st.info(
+                "📋 Paste the LaTeX code below into [Overleaf](https://www.overleaf.com) to compile your PDF for free."
+            )
+            st.code(st.session_state.latex_output, language="latex")
 
 
 if __name__ == "__main__":

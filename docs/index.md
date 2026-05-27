@@ -1,1 +1,0 @@
-This project uses Gemini 2.5 to optimize resumes for ATS systems.

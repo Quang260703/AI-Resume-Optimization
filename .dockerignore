@@ -1,0 +1,9 @@
+.git
+.gitignore
+.env
+.streamlit/secrets.toml
+__pycache__
+*.pyc
+site/
+mkdocs.yml
+docs/
