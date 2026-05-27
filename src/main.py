@@ -4,9 +4,9 @@ from llama_index.core import SimpleDirectoryReader
 import tempfile
 import shutil
 from llama_index.readers.file import PDFReader
-from reading_agents import run_reading_agent
-from writing_agents import run_writing_agent
-from prompts import OPTIMIZATION_SELECTION_PROMPT
+from src.reading_agents import run_reading_agent
+from src.writing_agents import run_writing_agent
+from src.prompts import OPTIMIZATION_SELECTION_PROMPT
 
 
 def main():

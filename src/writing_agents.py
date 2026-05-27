@@ -1,7 +1,7 @@
 import os
 from llama_index.llms.google_genai import GoogleGenAI
 from dotenv import load_dotenv
-from prompts import WRITING_AGENT_PROMPT_INSTRUCTIONS, WRITING_AGENT_PROMPT_TEMPLATE
+from src.prompts import WRITING_AGENT_PROMPT_INSTRUCTIONS, WRITING_AGENT_PROMPT_TEMPLATE
 
 load_dotenv()
 
