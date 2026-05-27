@@ -1,7 +1,7 @@
 import os
 from llama_index.llms.google_genai import GoogleGenAI
 from dotenv import load_dotenv
-from src.prompts import READING_AGENT_PROMPT
+from .prompts import READING_AGENT_PROMPT
 
 # Load environment variables
 load_dotenv()
