@@ -7,7 +7,6 @@ from src.writing_agents import run_writing_agent
 def test_writing_agent_returns_latex_string(mock_genai_cls):
     """Test that the agent returns a valid-looking LaTeX string."""
     mock_llm = MagicMock()
-    # Mocking the return value to be a LaTeX document
     latex_output = r"\documentclass{article}\begin{document}Hello World\end{document}"
     mock_llm.complete.return_value = latex_output
     mock_genai_cls.return_value = mock_llm
@@ -19,7 +18,6 @@ def test_writing_agent_returns_latex_string(mock_genai_cls):
         "Python skills required.",
     )
 
-    # Assertions
     assert isinstance(result, str)
     assert r"\documentclass" in result
     assert r"\begin{document}" in result

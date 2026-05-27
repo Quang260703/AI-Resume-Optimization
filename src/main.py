@@ -33,7 +33,7 @@ def main():
         st.session_state.latex_output = None
 
     st.title("📝 Resume Optimizer")
-    st.caption("Direct-Context Optimization via Gemini 2.5")
+    st.caption("Direct-Context Optimization via Gemini AI")
 
     with st.sidebar:
         generative_model = st.selectbox(

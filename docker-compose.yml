@@ -4,5 +4,4 @@ services:
     ports:
       - "8501:8501"
     environment:
-      # This tells the container where to look for the key
       - GEMINI_API_KEY=${GEMINI_API_KEY}
