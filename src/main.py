@@ -1,12 +1,15 @@
 import streamlit as st
+import sys
 import os
+
+sys.path.insert(0, os.path.dirname(__file__))
 from llama_index.core import SimpleDirectoryReader
 import tempfile
 import shutil
 from llama_index.readers.file import PDFReader
-from .reading_agents import run_reading_agent
-from .writing_agents import run_writing_agent
-from .prompts import OPTIMIZATION_SELECTION_PROMPT
+from reading_agents import run_reading_agent
+from writing_agents import run_writing_agent
+from prompts import OPTIMIZATION_SELECTION_PROMPT
 
 
 def main():

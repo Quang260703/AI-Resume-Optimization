@@ -1,7 +1,10 @@
+import sys
 import os
+
+sys.path.insert(0, os.path.dirname(__file__))
 from llama_index.llms.google_genai import GoogleGenAI
 from dotenv import load_dotenv
-from .prompts import WRITING_AGENT_PROMPT_INSTRUCTIONS, WRITING_AGENT_PROMPT_TEMPLATE
+from prompts import WRITING_AGENT_PROMPT_INSTRUCTIONS, WRITING_AGENT_PROMPT_TEMPLATE
 
 load_dotenv()
 
