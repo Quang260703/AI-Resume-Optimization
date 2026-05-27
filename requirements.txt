@@ -7,7 +7,3 @@ ruff
 mypy
 pytest
 pytest-mock
-mkdocs
-mkdocs-material
-mkdocstrings[python]>=0.20.0
-mkdocs-autorefs>=0.5.0
