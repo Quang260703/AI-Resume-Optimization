@@ -9,7 +9,6 @@ permissions:
   contents: write
 
 jobs:
-  # check code quality
   code-quality:
     runs-on: ubuntu-22.04
     steps:

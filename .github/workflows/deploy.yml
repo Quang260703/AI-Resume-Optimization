@@ -2,7 +2,7 @@ name: deploy
 
 on:
   workflow_run:
-    workflows: ["test"]   # must match the `name:` in your test.yml exactly
+    workflows: ["test"]
     branches:
       - main
     types:

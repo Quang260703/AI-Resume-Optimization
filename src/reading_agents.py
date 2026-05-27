@@ -6,7 +6,6 @@ from llama_index.llms.google_genai import GoogleGenAI
 from dotenv import load_dotenv
 from prompts import READING_AGENT_PROMPT
 
-# Load environment variables
 load_dotenv()
 
 
@@ -19,13 +18,9 @@ def run_reading_agent(
 ) -> str:
     """Run optimization using only the Generative Model's long context."""
     try:
-        # Initialize Gemini
         llm = GoogleGenAI(model=generative_model, api_key=os.getenv("GEMINI_API_KEY"))
-
-        # Extract all text from the resume documents
         resume_text = "\n".join([doc.text for doc in documents])
 
-        # Combined Prompt: Uses the model as its own analyzer and optimizer
         full_prompt = READING_AGENT_PROMPT.format(
             resume_text=resume_text,
             job_title=job_title,
@@ -33,7 +28,6 @@ def run_reading_agent(
             query_text=query_text,
         )
 
-        # Complete the request in one step
         response = llm.complete(full_prompt)
 
         return str(response)
