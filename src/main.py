@@ -38,7 +38,7 @@ def main():
     with st.sidebar:
         generative_model = st.selectbox(
             "Generative Model",
-            ["models/gemini-2.5-flash", "models/gemma-4-26b-a4b-it"],
+            ["models/gemma-4-26b-a4b-it", "models/gemini-2.5-flash"],
             index=0,
         )
 
@@ -89,8 +89,10 @@ def main():
 
     with col1:
         st.subheader("Job Information")
-        job_title = st.text_input("Job Title")
-        job_description = st.text_area("Job Description", height=200)
+        job_title = st.text_input("Job Title", key="job_title_input")
+        job_description = st.text_area(
+            "Job Description", key="job_desc_input", height=200
+        )
 
         st.subheader("Optimization Options")
         optimization_type = st.selectbox(
