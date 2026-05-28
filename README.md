@@ -12,7 +12,7 @@ An AI-powered resume optimization tool built with Streamlit and Google Gemini. U
 ## Project Structure
  
 ```
-resume-optimizer/
+ai-resume-optimization/
 ├── src/
 │   ├── main.py              # Streamlit app entry point
 │   ├── reading_agents.py    # Resume analysis agent
@@ -34,8 +34,8 @@ resume-optimizer/
  
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/cicd-project.git
-   cd cicd-project
+   git clone https://github.com/Quang260703/AI-Resume-Optimization
+   cd ai-resume-optimization
    ```
  
 2. Install dependencies:
